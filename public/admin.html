@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة التحكم — نجد</title>
+  <link rel="stylesheet" href="css/admin.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <div class="admin-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="/logo-gold.png" alt="نجد" class="sidebar-brand-logo" />
+        <div class="sidebar-brand-text">
+          <span class="brand-title">مـتـجـر نـجـد</span>
+          <span class="brand-subtitle">لوحة التحكم الإدارية</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <span class="nav-icon">📊</span> لوحة التحكم
+        </button>
+        <button class="nav-item" data-tab="products">
+          <span class="nav-icon">🧴</span> المنتجات
+        </button>
+        <button class="nav-item" data-tab="orders">
+          <span class="nav-icon">📦</span> الطلبات
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon">⚙️</span> إعدادات البريد
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/" target="_blank">← الذهاب للمتجر</a>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="admin-main">
+
+      <!-- LIVE WHATSAPP & ORDER NOTIFICATION BANNER -->
+      <div id="liveOrderAlert" class="live-order-alert" style="display:none;"></div>
+
+      <!-- DASHBOARD TAB -->
+      <section class="tab-content active" id="tab-dashboard">
+        <h1 class="page-title">لوحة التحكم</h1>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statTotal">0</span>
+              <span class="stat-label">إجمالي الطلبات</span>
+            </div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statPending">0</span>
+              <span class="stat-label">طلبات معلقة</span>
+            </div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statRevenue">0</span>
+              <span class="stat-label">إجمالي الإيرادات (ريال)</span>
+            </div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+              <span class="stat-value" id="statLowStock">0</span>
+              <span class="stat-label">منتجات مخزون منخفض</span>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="section-title">آخر الطلبات</h2>
+        <div class="table-wrapper">
+          <table class="data-table" id="recentOrdersTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>العميل</th>
+                <th>المدينة</th>
+                <th>الإجمالي</th>
+                <th>الحالة</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody id="recentOrdersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PRODUCTS TAB -->
+      <section class="tab-content" id="tab-products">
+        <div class="tab-header">
+          <h1 class="page-title">المنتجات</h1>
+          <button class="primary-btn" id="addProductBtn">+ إضافة منتج</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="productsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الاسم</th>
+                <th>الوصف</th>
+                <th>السعر</th>
+                <th>المخزون</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="productsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ORDERS TAB -->
+      <section class="tab-content" id="tab-orders">
+        <div class="tab-header">
+          <h1 class="page-title">الطلبات</h1>
+          <div class="orders-actions">
+            <button class="primary-btn excel-btn" id="exportExcelBtn" title="تنزيل ملف إكسل بجميع الطلبات">
+              📊 تصدير الطلبات إلى Excel
+            </button>
+            <div class="filter-group">
+              <label>تصفية:</label>
+              <select id="statusFilter">
+                <option value="">الكل</option>
+                <option value="pending">معلق</option>
+                <option value="confirmed">مؤكد</option>
+                <option value="delivered">تم التوصيل</option>
+                <option value="cancelled">ملغي</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="ordersTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>العميل</th>
+                <th>الهاتف</th>
+                <th>المدينة</th>
+                <th>الإجمالي</th>
+                <th>الحالة</th>
+                <th>التاريخ</th>
+                <th>عرض</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section class="tab-content" id="tab-settings">
+        <h1 class="page-title">⚙️ إعدادات البريد الإلكتروني (Gmail / SMTP)</h1>
+        <p style="color:var(--text-muted);margin-bottom:20px;font-size:14px;">
+          لإرسال رسائل التفعيل وأكواد التحقق إلى إيميلات العملاء الحقيقية مباشرة دون أي وسيط، اضبط بيانات الإرسال هنا:
+        </p>
+
+        <div class="card" style="background:#fff;padding:28px;border-radius:12px;max-width:620px;border:1px solid var(--border);box-shadow:var(--shadow);">
+          <form id="emailSettingsForm" onsubmit="return false;">
+            <div class="form-group">
+              <label style="font-weight:700;display:block;margin-bottom:6px;">مزود خدمة البريد:</label>
+              <select id="settingService" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:14px;">
+                <option value="gmail">Gmail (الأسهل والأسرع - باستخدام كلمة مرور التطبيق)</option>
+                <option value="smtp">خادم SMTP مخصص</option>
+              </select>
+            </div>
+
+            <div id="customSmtpFields" style="display:none;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label style="font-weight:600;display:block;margin-bottom:6px;">خادم SMTP (Host):</label>
+                  <input type="text" id="settingHost" placeholder="smtp.example.com" />
+                </div>
+                <div class="form-group">
+                  <label style="font-weight:600;display:block;margin-bottom:6px;">المنفذ (Port):</label>
+                  <input type="number" id="settingPort" placeholder="465 أو 587" />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label style="font-weight:700;display:block;margin-bottom:6px;">البريد الإلكتروني للإرسال (Gmail / Email):</label>
+              <input type="email" id="settingUser" placeholder="your-store@gmail.com" dir="ltr" required style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);" />
+            </div>
+
+            <div class="form-group">
+              <label style="font-weight:700;display:block;margin-bottom:6px;">كلمة مرور التطبيق (App Password):</label>
+              <input type="password" id="settingPass" placeholder="•••• •••• •••• •••• (16 حرفاً من Google)" dir="ltr" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);" />
+              <small style="color:var(--text-muted);display:block;margin-top:6px;line-height:1.5;">
+                💡 <strong>طريقة إنشاء كلمة مرور التطبيق لـ Gmail:</strong> ادخل إلى حساب Google الخاص بك > الأمان > التحقق بخطوتين > انزل إلى "كلمات مرور التطبيقات" وأنشئ كلمة مرور جديدة باسم "متجر نجد" وضعها هنا.
+              </small>
+            </div>
+
+            <div class="form-error" id="settingsError" style="margin-bottom:12px;"></div>
+            <div id="settingsSuccess" style="display:none;color:#15803d;background:#dcfce7;padding:12px;border-radius:8px;margin-bottom:14px;font-size:14px;font-weight:600;"></div>
+
+            <button type="button" class="primary-btn" id="saveEmailSettingsBtn">
+              💾 حفظ إعدادات البريد
+            </button>
+          </form>
+
+          <hr style="margin:28px 0;border:none;border-top:1px dashed var(--border);" />
+
+          <h3 style="font-size:16px;margin-bottom:10px;color:var(--gold-dark);font-weight:700;">📨 اختبار إرسال رسالة تجريبية</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">أدخل أي بريد إلكتروني تملكه لتجربة إرسال رسالة فورية والتأكد من نجاح الإعدادات:</p>
+          <div style="display:flex;gap:10px;">
+            <input type="email" id="testEmailTarget" placeholder="your-email@gmail.com" dir="ltr" style="flex:1;padding:10px 14px;border-radius:8px;border:1px solid var(--border);" />
+            <button type="button" class="secondary-btn" id="sendTestEmailBtn">
+              إرسال تجربة الآن
+            </button>
+          </div>
+          <div id="testEmailStatus" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-weight:600;"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- PRODUCT MODAL -->
+  <div class="modal-overlay" id="productModalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="productModalTitle">إضافة منتج</h2>
+        <button class="close-btn" id="closeProductModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="productForm" novalidate>
+          <input type="hidden" id="productId" />
+          <div class="form-group">
+            <label for="productName">اسم المنتج *</label>
+            <input type="text" id="productName" placeholder="مثال: عطر عنبر نجد" required />
+          </div>
+          <div class="form-group">
+            <label for="productDesc">الوصف</label>
+            <textarea id="productDesc" rows="3" placeholder="وصف موجز لمكونات ونكهة العطر..."></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="productPrice">السعر (ريال) *</label>
+              <input type="number" id="productPrice" min="0" step="0.01" required />
+            </div>
+            <div class="form-group">
+              <label for="productStock">المخزون *</label>
+              <input type="number" id="productStock" min="0" required />
+            </div>
+          </div>
+
+          <!-- Product Image: Upload from Device or URL -->
+          <div class="form-group">
+            <label>صورة المنتج</label>
+            <div class="image-upload-wrapper">
+              <div class="upload-controls">
+                <input type="file" id="productImageFile" accept="image/*" style="display:none;" />
+                <button type="button" class="secondary-btn upload-trigger-btn" id="triggerUploadBtn">
+                  📁 اختيار صورة من الجهاز
+                </button>
+                <span id="uploadStatusText" class="upload-status-text"></span>
+              </div>
+
+              <div class="image-preview-container" id="imagePreviewContainer" style="display:none;">
+                <img id="imagePreview" src="" alt="معاينة الصورة" />
+                <button type="button" class="remove-preview-btn" id="removePreviewBtn" title="إزالة الصورة">✕</button>
+              </div>
+
+              <div style="margin-top:8px;">
+                <label for="productImage" style="font-size:12px;color:var(--text-muted);">أو ضع رابط صورة مباشر:</label>
+                <input type="text" id="productImage" placeholder="https://... أو /uploads/..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-error" id="productError"></div>
+          <button type="submit" class="primary-btn full-width" id="productSubmitBtn">حفظ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER DETAIL MODAL -->
+  <div class="modal-overlay" id="orderDetailOverlay">
+    <div class="modal wide-modal">
+      <div class="modal-header">
+        <h2>تفاصيل الطلب <span id="detailOrderId"></span></h2>
+        <button class="close-btn" id="closeOrderDetail">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-item"><span>الاسم:</span> <strong id="detailName"></strong></div>
+          <div class="detail-item"><span>الهاتف:</span> <strong id="detailPhone"></strong></div>
+          <div class="detail-item"><span>المدينة:</span> <strong id="detailCity"></strong></div>
+          <div class="detail-item"><span>العنوان:</span> <strong id="detailAddress"></strong></div>
+          <div class="detail-item"><span>ملاحظات:</span> <strong id="detailNotes"></strong></div>
+          <div class="detail-item"><span>التاريخ:</span> <strong id="detailDate"></strong></div>
+        </div>
+        <h3 class="items-title">المنتجات المطلوبة</h3>
+        <table class="data-table" id="detailItemsTable">
+          <thead>
+            <tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
+          </thead>
+          <tbody id="detailItemsBody"></tbody>
+        </table>
+        <div class="detail-total">
+          <span>الإجمالي:</span>
+          <strong id="detailTotal"></strong>
+        </div>
+        <div class="whatsapp-admin-actions" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+          <a id="detailWhatsappCustomer" href="#" target="_blank" class="primary-btn" style="background:#25D366;border-color:#25D366;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+            💬 مراسلة العميل عبر الواتساب
+          </a>
+          <a id="detailWhatsappAdmin" href="#" target="_blank" class="secondary-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+            📱 فتح إشعار الطلب المنسق
+          </a>
+        </div>
+        <div class="status-change">
+          <label for="detailStatus">تغيير الحالة:</label>
+          <select id="detailStatus">
+            <option value="pending">معلق</option>
+            <option value="confirmed">مؤكد</option>
+            <option value="delivered">تم التوصيل</option>
+            <option value="cancelled">ملغي</option>
+          </select>
+          <button class="primary-btn" id="updateStatusBtn">تحديث</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM DELETE MODAL -->
+  <div class="modal-overlay" id="deleteConfirmOverlay">
+    <div class="modal small-modal">
+      <div class="modal-header">
+        <h2>تأكيد الحذف</h2>
+        <button class="close-btn" id="closeDeleteModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-msg">هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.</p>
+        <div class="confirm-actions">
+          <button class="danger-btn" id="confirmDeleteBtn">حذف</button>
+          <button class="secondary-btn" id="cancelDeleteBtn">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>

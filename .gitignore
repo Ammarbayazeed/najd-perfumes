@@ -1,0 +1,6 @@
+node_modules/
+.env
+perfume_store.db-journal
+perfume_store.db-wal
+perfume_store.db-shm
+.DS_Store
