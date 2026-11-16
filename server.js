@@ -48,12 +48,15 @@ function getMailSettings() {
   const settings = {};
   rows.forEach(r => { settings[r.key] = r.value; });
 
+  const rawUser = settings['smtp_user'] || process.env.EMAIL_USER || process.env.GMAIL_USER || '';
+  const rawPass = settings['smtp_pass'] || process.env.EMAIL_PASS || process.env.GMAIL_PASS || '';
+
   return {
     service: settings['smtp_service'] || process.env.EMAIL_SERVICE || 'gmail',
     host: settings['smtp_host'] || process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(settings['smtp_port'] || process.env.SMTP_PORT) || 465,
-    user: settings['smtp_user'] || process.env.EMAIL_USER || process.env.GMAIL_USER || '',
-    pass: settings['smtp_pass'] || process.env.EMAIL_PASS || process.env.GMAIL_PASS || '',
+    user: rawUser.trim(),
+    pass: rawPass.replace(/\s+/g, ''),
     from: settings['smtp_from'] || process.env.EMAIL_FROM || '"متجر نجد للعطور" <no-reply@najd-perfumes.com>'
   };
 }
@@ -66,15 +69,19 @@ function createMailTransporter() {
   try {
     if (s.service === 'gmail') {
       return nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: s.user, pass: s.pass }
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: { user: s.user, pass: s.pass },
+        tls: { rejectUnauthorized: false }
       });
     } else {
       return nodemailer.createTransport({
         host: s.host,
         port: s.port,
-        secure: s.port === 465,
-        auth: { user: s.user, pass: s.pass }
+        secure: Number(s.port) === 465,
+        auth: { user: s.user, pass: s.pass },
+        tls: { rejectUnauthorized: false }
       });
     }
   } catch (err) {
@@ -691,8 +698,8 @@ app.post('/api/admin/email-settings', (req, res) => {
   if (service != null) setStmt.run('smtp_service', service);
   if (host != null) setStmt.run('smtp_host', host);
   if (port != null) setStmt.run('smtp_port', String(port));
-  if (user != null) setStmt.run('smtp_user', user);
-  if (pass) setStmt.run('smtp_pass', pass);
+  if (user != null) setStmt.run('smtp_user', String(user).trim());
+  if (pass) setStmt.run('smtp_pass', String(pass).replace(/\s+/g, ''));
   if (from != null) setStmt.run('smtp_from', from);
 
   res.json({ message: 'تم حفظ إعدادات البريد بنجاح! يمكن لمتجر نجد الآن إرسال رسائل التفعيل لعملائه مباشرة.' });
@@ -703,13 +710,18 @@ app.post('/api/admin/test-email', async (req, res) => {
   const { target_email } = req.body;
   if (!target_email) return res.status(400).json({ error: 'البريد الإلكتروني التجريبي مطلوب' });
 
-  const transporter = createMailTransporter();
-  if (!transporter) {
-    return res.status(400).json({ error: 'لم يتم حفظ بيانات البريد (اسم المستخدم وكلمة مرور التطبيق) بعد' });
+  const s = getMailSettings();
+  if (!s.user || !s.pass) {
+    return res.status(400).json({ error: 'لم يتم حفظ بيانات البريد (اسم المستخدم وكلمة مرور التطبيق) بعد. يرجى إدخالها وحفظها أولاً.' });
   }
 
-  const s = getMailSettings();
+  const transporter = createMailTransporter();
+  if (!transporter) {
+    return res.status(400).json({ error: 'تعذر إنشاء اتصال بالبريد، يرجى التأكد من البيانات المدخلة.' });
+  }
+
   try {
+    await transporter.verify();
     await transporter.sendMail({
       from: s.from || `"متجر نجد للعطور" <${s.user}>`,
       to: target_email,
@@ -725,7 +737,12 @@ app.post('/api/admin/test-email', async (req, res) => {
     });
     res.json({ message: `تم إرسال الرسالة التجريبية بنجاح إلى ${target_email}!` });
   } catch (err) {
-    res.status(500).json({ error: 'فشل إرسال الإيميل: ' + err.message });
+    console.error('Test email error:', err);
+    let errMsg = err.message;
+    if (errMsg.includes('535') || errMsg.includes('Username and Password not accepted') || errMsg.includes('Invalid login')) {
+      errMsg = 'خطأ في التحقق من حساب Google: تأكد من استخدام "كلمة مرور التطبيق" (App Password) المكونة من 16 حرفاً من إعدادات حساب Google، وتأكد من تفعيل "التحقق بخطوتين" في حسابك، وليس كلمة مرور حسابك العادية.';
+    }
+    res.status(500).json({ error: errMsg });
   }
 });
 

@@ -544,7 +544,7 @@ async function saveEmailSettings() {
   const host = document.getElementById('settingHost').value.trim();
   const port = document.getElementById('settingPort').value.trim();
   const user = document.getElementById('settingUser').value.trim();
-  const pass = document.getElementById('settingPass').value.trim();
+  const pass = document.getElementById('settingPass').value.replace(/\s+/g, '');
 
   const errEl = document.getElementById('settingsError');
   const succEl = document.getElementById('settingsSuccess');
