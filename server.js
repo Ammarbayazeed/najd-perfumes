@@ -42,22 +42,24 @@ function getMailSettings() {
   const db = getDb();
   let rows = [];
   try {
-    rows = db.prepare('SELECT key, value FROM settings WHERE key LIKE "smtp_%"').all();
+    rows = db.prepare('SELECT key, value FROM settings WHERE key LIKE "smtp_%" OR key LIKE "mail_%"').all();
   } catch (e) {}
 
   const settings = {};
   rows.forEach(r => { settings[r.key] = r.value; });
 
-  const rawUser = settings['smtp_user'] || process.env.EMAIL_USER || process.env.GMAIL_USER || '';
-  const rawPass = settings['smtp_pass'] || process.env.EMAIL_PASS || process.env.GMAIL_PASS || '';
+  const rawUser = settings['smtp_user'] || settings['mail_user'] || process.env.EMAIL_USER || process.env.GMAIL_USER || '';
+  const rawPass = settings['smtp_pass'] || settings['mail_pass'] || process.env.EMAIL_PASS || process.env.GMAIL_PASS || '';
+  const rawApiKey = settings['mail_api_key'] || settings['smtp_api_key'] || process.env.BREVO_API_KEY || process.env.RESEND_API_KEY || '';
 
   return {
-    service: settings['smtp_service'] || process.env.EMAIL_SERVICE || 'gmail',
+    service: settings['smtp_service'] || settings['mail_service'] || process.env.EMAIL_SERVICE || 'gmail',
     host: settings['smtp_host'] || process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(settings['smtp_port'] || process.env.SMTP_PORT) || 465,
     user: rawUser.trim(),
     pass: rawPass.replace(/\s+/g, ''),
-    from: settings['smtp_from'] || process.env.EMAIL_FROM || '"متجر نجد للعطور" <no-reply@najd-perfumes.com>'
+    apiKey: rawApiKey.trim(),
+    from: settings['smtp_from'] || settings['mail_from'] || process.env.EMAIL_FROM || '"متجر نجد للعطور" <no-reply@najd-perfumes.com>'
   };
 }
 
@@ -98,20 +100,90 @@ function createMailTransporter() {
   }
 }
 
-// Safe mail sender with a strict 8-second timeout so requests never hang
+// Unified Mail Sender (supports Brevo HTTP API, Resend HTTP API, and SMTP)
 async function sendMailSafe(mailOptions) {
+  const s = getMailSettings();
+
+  // 1. Brevo HTTP API (Best for Render Free Tier — uses standard HTTPS Port 443 which Render never blocks)
+  const brevoKey = (s.apiKey && s.apiKey.startsWith('xkeysib-')) ? s.apiKey : ((s.pass && s.pass.startsWith('xkeysib-')) ? s.pass : (s.service === 'brevo' ? (s.apiKey || s.pass) : null));
+  if (s.service === 'brevo' || (brevoKey && brevoKey.startsWith('xkeysib-'))) {
+    const activeKey = brevoKey || s.apiKey || s.pass;
+    if (!activeKey) {
+      return { sent: false, error: 'يرجى إدخال مفتاح Brevo API Key في لوحة التحكم' };
+    }
+    const senderEmail = s.user || 'najd.perfumes.store@gmail.com';
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': activeKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: 'متجر نجد للعطور', email: senderEmail },
+          to: [{ email: mailOptions.to, name: mailOptions.to.split('@')[0] }],
+          subject: mailOptions.subject,
+          htmlContent: mailOptions.html,
+          textContent: mailOptions.text
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'خطأ في إرسال البريد عبر Brevo API');
+      }
+      return { sent: true, info: data };
+    } catch (err) {
+      console.error('Brevo API error:', err.message);
+      return { sent: false, error: 'خطأ Brevo API: ' + err.message };
+    }
+  }
+
+  // 2. Resend HTTP API (uses standard HTTPS Port 443)
+  const resendKey = (s.apiKey && s.apiKey.startsWith('re_')) ? s.apiKey : ((s.pass && s.pass.startsWith('re_')) ? s.pass : (s.service === 'resend' ? (s.apiKey || s.pass) : null));
+  if (s.service === 'resend' || (resendKey && resendKey.startsWith('re_'))) {
+    const activeKey = resendKey || s.apiKey || s.pass;
+    if (!activeKey) return { sent: false, error: 'يرجى إدخال مفتاح Resend API Key' };
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: s.from || 'متجر نجد <onboarding@resend.dev>',
+          to: [mailOptions.to],
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+          text: mailOptions.text
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'خطأ في إرسال البريد عبر Resend API');
+      return { sent: true, info: data };
+    } catch (err) {
+      return { sent: false, error: 'خطأ Resend API: ' + err.message };
+    }
+  }
+
+  // 3. Fallback to SMTP (Gmail / Custom SMTP)
   const transporter = createMailTransporter();
   if (!transporter) return { sent: false, error: 'لم يتم حفظ بيانات البريد (Gmail) في السيرفر بعد' };
 
   try {
     const info = await Promise.race([
       transporter.sendMail(mailOptions),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بخادم البريد (Timeout)')), 8000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بالبريد (Timeout)')), 8000))
     ]);
     return { sent: true, info };
   } catch (err) {
     console.error('⚠️ خطأ إرسال البريد:', err.message);
-    return { sent: false, error: err.message };
+    let errMsg = err.message;
+    if (errMsg.includes('Timeout') || errMsg.includes('ETIMEDOUT')) {
+      errMsg = '⚠️ منصة Render تحظر بورتات Gmail SMTP (465 و 587) في الخطة المجانية. الحل المضمون والمجاني هو اختيار "Brevo API" في خيارات البريد أدناه، فهو يعمل عبر HTTPS ولا تحظره Render إطلاقاً.';
+    }
+    return { sent: false, error: errMsg };
   }
 }
 
@@ -713,10 +785,16 @@ app.post('/api/admin/email-settings', (req, res) => {
   if (host != null) setStmt.run('smtp_host', host);
   if (port != null) setStmt.run('smtp_port', String(port));
   if (user != null) setStmt.run('smtp_user', String(user).trim());
-  if (pass) setStmt.run('smtp_pass', String(pass).replace(/\s+/g, ''));
+  if (pass) {
+    const cleanPass = String(pass).replace(/\s+/g, '');
+    setStmt.run('smtp_pass', cleanPass);
+    if (cleanPass.startsWith('xkeysib-') || cleanPass.startsWith('re_') || service === 'brevo' || service === 'resend') {
+      setStmt.run('mail_api_key', cleanPass);
+    }
+  }
   if (from != null) setStmt.run('smtp_from', from);
 
-  res.json({ message: 'تم حفظ إعدادات البريد بنجاح! يمكن لمتجر نجد الآن إرسال رسائل التفعيل لعملائه مباشرة.' });
+  res.json({ message: 'تم حفظ إعدادات البريد بنجاح! يمكنك الآن تجربة الإرسال.' });
 });
 
 // POST /api/admin/test-email
@@ -725,8 +803,8 @@ app.post('/api/admin/test-email', async (req, res) => {
   if (!target_email) return res.status(400).json({ error: 'البريد الإلكتروني التجريبي مطلوب' });
 
   const s = getMailSettings();
-  if (!s.user || !s.pass) {
-    return res.status(400).json({ error: 'لم يتم حفظ بيانات البريد (اسم المستخدم وكلمة مرور التطبيق) بعد. يرجى إدخالها وحفظها أولاً.' });
+  if (!s.user || (!s.pass && !s.apiKey)) {
+    return res.status(400).json({ error: 'لم يتم حفظ بيانات البريد (البريد ومفتاح API أو كلمة المرور) بعد. يرجى إدخالها وحفظها أولاً.' });
   }
 
   const result = await sendMailSafe({
@@ -750,8 +828,6 @@ app.post('/api/admin/test-email', async (req, res) => {
   let errMsg = result.error || 'فشل إرسال الإيميل';
   if (errMsg.includes('535') || errMsg.includes('Username and Password not accepted') || errMsg.includes('Invalid login')) {
     errMsg = 'خطأ في التحقق من حساب Google: تأكد من استخدام "كلمة مرور التطبيق" (App Password) المكونة من 16 حرفاً من إعدادات حساب Google، وتأكد من تفعيل "التحقق بخطوتين" في حسابك، وليس كلمة مرور حسابك العادية.';
-  } else if (errMsg.includes('Timeout') || errMsg.includes('ETIMEDOUT')) {
-    errMsg = 'انتهت مهلة الاتصال بالبريد (Timeout): خادم البريد استغرق وقتاً طويلاً للرد. يرجى إعادة المحاولة والتأكد من بيانات الحساب.';
   }
   return res.status(500).json({ error: errMsg });
 });

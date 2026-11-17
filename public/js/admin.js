@@ -503,13 +503,37 @@ function showLiveOrderNotification(n) {
 setInterval(pollAdminNotifications, 4000);
 
 // ─── Email Settings Logic ───────────────────────────────────────
+function updateEmailUIForService(service) {
+  const customFields = document.getElementById('customSmtpFields');
+  const brevoHelp = document.getElementById('brevoHelpBox');
+  const gmailHelp = document.getElementById('gmailHelpBox');
+  const passLabel = document.getElementById('settingPassLabel');
+  const passInput = document.getElementById('settingPass');
+  const userLabel = document.getElementById('settingUserLabel');
+
+  if (customFields) customFields.style.display = service === 'smtp' ? 'block' : 'none';
+  if (brevoHelp) brevoHelp.style.display = service === 'brevo' ? 'block' : 'none';
+  if (gmailHelp) gmailHelp.style.display = service === 'gmail' ? 'block' : 'none';
+
+  if (service === 'brevo') {
+    if (userLabel) userLabel.textContent = 'البريد الإلكتروني المسجل في Brevo:';
+    if (passLabel) passLabel.textContent = 'مفتاح Brevo API Key:';
+    if (passInput) passInput.placeholder = 'xkeysib-...';
+  } else if (service === 'resend') {
+    if (userLabel) userLabel.textContent = 'البريد الإلكتروني للإرسال:';
+    if (passLabel) passLabel.textContent = 'مفتاح Resend API Key:';
+    if (passInput) passInput.placeholder = 're_...';
+  } else {
+    if (userLabel) userLabel.textContent = 'البريد الإلكتروني للإرسال (Gmail / Email):';
+    if (passLabel) passLabel.textContent = 'كلمة مرور التطبيق (App Password):';
+    if (passInput) passInput.placeholder = '•••• •••• •••• •••• (16 حرفاً من Google)';
+  }
+}
+
 function bindEmailSettings() {
   const serviceSel = document.getElementById('settingService');
-  const customFields = document.getElementById('customSmtpFields');
-  if (serviceSel && customFields) {
-    serviceSel.addEventListener('change', () => {
-      customFields.style.display = serviceSel.value === 'smtp' ? 'block' : 'none';
-    });
+  if (serviceSel) {
+    serviceSel.addEventListener('change', () => updateEmailUIForService(serviceSel.value));
   }
 
   document.getElementById('saveEmailSettingsBtn')?.addEventListener('click', saveEmailSettings);
@@ -521,12 +545,13 @@ async function loadEmailSettings() {
     const res = await fetch(`${API}/api/admin/email-settings`);
     const data = await res.json();
     if (data) {
-      if (data.service) document.getElementById('settingService').value = data.service;
+      if (data.service) {
+        document.getElementById('settingService').value = data.service;
+        updateEmailUIForService(data.service);
+      }
       if (data.host) document.getElementById('settingHost').value = data.host;
       if (data.port) document.getElementById('settingPort').value = data.port;
       if (data.user) document.getElementById('settingUser').value = data.user;
-      const customFields = document.getElementById('customSmtpFields');
-      if (customFields) customFields.style.display = data.service === 'smtp' ? 'block' : 'none';
 
       const successEl = document.getElementById('settingsSuccess');
       if (data.configured) {

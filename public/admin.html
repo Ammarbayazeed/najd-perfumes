@@ -168,11 +168,24 @@
         <div class="card" style="background:#fff;padding:28px;border-radius:12px;max-width:620px;border:1px solid var(--border);box-shadow:var(--shadow);">
           <form id="emailSettingsForm" onsubmit="return false;">
             <div class="form-group">
-              <label style="font-weight:700;display:block;margin-bottom:6px;">مزود خدمة البريد:</label>
+              <label style="font-weight:700;display:block;margin-bottom:6px;">طريقة ومزود خدمة الإرسال:</label>
               <select id="settingService" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:14px;">
-                <option value="gmail">Gmail (الأسهل والأسرع - باستخدام كلمة مرور التطبيق)</option>
+                <option value="brevo">Brevo API (الموصى به 🌟 — يعمل فوراً على Render مجاناً بدون حظر بورتات)</option>
+                <option value="gmail">Gmail SMTP (يتطلب ترقية Render أو رفع حظر بورت 465)</option>
+                <option value="resend">Resend API (مفتاح API)</option>
                 <option value="smtp">خادم SMTP مخصص</option>
               </select>
+            </div>
+
+            <!-- BREVO NOTICE -->
+            <div id="brevoHelpBox" style="background:#F0FDF4;border:1px solid #BBF7D0;padding:14px;border-radius:8px;margin-bottom:16px;font-size:13px;line-height:1.7;color:#166534;">
+              🚀 <strong>لماذا Brevo API هو الحل الأفضل لموقعك على Render؟</strong><br />
+              منصة Render تحظر بورتات SMTP التقليدية (465 و 587) في الخطة المجانية، بينما <strong>Brevo API</strong> يرسل الرسائل عبر منفذ HTTPS الآمن والمفتوح دائماً ويمنحك <strong>300 رسالة مجانية يومياً</strong>!<br />
+              <strong>خطوات التفعيل المجاني (دقيقة واحدة):</strong><br />
+              1. سجل مجاناً عبر حساب Google في موقع: <a href="https://www.brevo.com" target="_blank" style="color:#15803d;font-weight:bold;text-decoration:underline;">www.brevo.com</a><br />
+              2. من القائمة العلوية اضغط على اسمك ثم اختر <strong>SMTP & API</strong>.<br />
+              3. اضغط على <strong>Generate a new API key</strong> وانسخ المفتاح (يبدأ بـ <code>xkeysib-...</code>).<br />
+              4. ضع المفتاح في خانة كلمة المرور أدناه، وضع إيميلك المسجل به في خانة البريد ثم اضغط حفظ.
             </div>
 
             <div id="customSmtpFields" style="display:none;">
@@ -189,21 +202,16 @@
             </div>
 
             <div class="form-group">
-              <label style="font-weight:700;display:block;margin-bottom:6px;">البريد الإلكتروني للإرسال (Gmail / Email):</label>
+              <label id="settingUserLabel" style="font-weight:700;display:block;margin-bottom:6px;">البريد الإلكتروني للإرسال:</label>
               <input type="email" id="settingUser" placeholder="your-store@gmail.com" dir="ltr" required style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);" />
             </div>
 
             <div class="form-group">
-              <label style="font-weight:700;display:block;margin-bottom:6px;">كلمة مرور التطبيق (App Password):</label>
-              <input type="password" id="settingPass" placeholder="•••• •••• •••• •••• (16 حرفاً من Google)" dir="ltr" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);" />
-              <div style="background:#FFF9F0;border:1px solid #EAD8C3;padding:12px;border-radius:8px;margin-top:8px;font-size:13px;line-height:1.6;color:#55483F;">
-                ⚠️ <strong>ملاحظة هامة جداً لـ Gmail:</strong> لا تقم بوضع كلمة مرور حساب Google العادية، بل استخدم <strong>كلمة مرور التطبيقات</strong> (App Password) المكونة من 16 حرفاً:
-                <br />
-                1. تأكد من تفعيل <strong>التحقق بخطوتين (2-Step Verification)</strong> في حسابك على Google.
-                <br />
-                2. افتح الرابط المباشر: <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:var(--gold-dark);font-weight:bold;text-decoration:underline;">myaccount.google.com/apppasswords</a>
-                <br />
-                3. اكتب اسم التطبيق "متجر نجد" واضغط إنشاء، ثم انسخ الـ 16 حرفاً وضعها هنا.
+              <label id="settingPassLabel" style="font-weight:700;display:block;margin-bottom:6px;">مفتاح API أو كلمة المرور:</label>
+              <input type="password" id="settingPass" placeholder="xkeysib-... (أو كلمة مرور التطبيق)" dir="ltr" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);" />
+              
+              <div id="gmailHelpBox" style="display:none;background:#FFF9F0;border:1px solid #EAD8C3;padding:12px;border-radius:8px;margin-top:8px;font-size:13px;line-height:1.6;color:#55483F;">
+                ⚠️ <strong>تنبيه Gmail مع Render:</strong> منصة Render في الخطة المجانية تحظر بورت 465 مما يسبب انتهاء الوقت (Timeout). إذا كنت ترغب باستخدام Gmail يجب ترقية خدمة Render إلى خطة مدفوعة، أو استخدام خيار Brevo API المجاني أعلاه.
               </div>
             </div>
 
