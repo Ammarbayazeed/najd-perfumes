@@ -837,13 +837,13 @@ async function handleResendCode() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إعادة الإرسال');
 
-    alert('تم إرسال رسالة التفعيل ورمز التحقق الجديد إلى بريدك الإلكتروني بنجاح.');
+    alert('تم إرسال رمز التحقق الجديد إلى بريدك الإلكتروني بنجاح.');
 
   } catch (err) {
     showError(errorEl, err.message);
   } finally {
     resendBtn.disabled = false;
-    resendBtn.textContent = 'إعادة إرسال الرابط والرمز 🔄';
+    resendBtn.textContent = 'إعادة إرسال رمز التحقق 🔄';
   }
 }
 

@@ -439,28 +439,28 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   const mailResult = await sendMailSafe({
     from: s.from || `"متجر نجد للعطور" <${s.user}>`,
     to: cleanEmail,
-    subject: `تفعيل حسابك في متجر نجد للعطور الفاخرة`,
-    text: `أهلاً ${cleanName}،\n\nاضغط على الرابط التالي لتفعيل حسابك في متجر نجد والبدء بالتسوق:\n${activationUrl}\n\nأو يمكنك استخدام رمز التحقق: ${code}\nالرابط صالح لمدة 24 ساعة.`,
+    subject: `رمز تأكيد حسابك في متجر نجد للعطور: ${code}`,
+    text: `أهلاً ${cleanName}،\n\nرمز التحقق الخاص بك لتفعيل حسابك في متجر نجد هو: ${code}\n\nيرجى إدخال هذا الرمز في المتجر لتأكيد حسابك والبدء بالتسوق.\nالرمز صالح لمدة 24 ساعة.`,
     html: `
       <div dir="rtl" style="font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#FAF7F2;padding:32px 20px;color:#2C241E;text-align:center;">
-        <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 24px;border:1px solid #E8DFD5;box-shadow:0 8px 24px rgba(139,98,64,0.08);">
+        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 24px;border:1px solid #E8DFD5;box-shadow:0 8px 24px rgba(139,98,64,0.08);">
           <h1 style="color:#8B6240;font-size:24px;margin-bottom:12px;font-weight:900;">متجر نجد للعطور الفاخرة</h1>
-          <p style="font-size:16px;color:#55483F;margin-bottom:24px;">أهلاً بك يا <strong>${cleanName}</strong> في عالم العطور الأصيلة.</p>
-          <p style="font-size:14px;color:#78685C;line-height:1.7;margin-bottom:28px;">لتأكيد بريدك الإلكتروني وتفعيل حسابك والبدء بإضافة العطور إلى سلتك، يرجى الضغط على زر التفعيل التالي:</p>
+          <p style="font-size:16px;color:#55483F;margin-bottom:20px;">أهلاً بك يا <strong>${cleanName}</strong> في عالم العطور الأصيلة.</p>
+          <p style="font-size:14px;color:#78685C;line-height:1.7;margin-bottom:24px;">لتأكيد بريدك الإلكتروني والبدء بإضافة العطور إلى سلتك، يرجى استخدام رمز التحقق التالي:</p>
           
-          <a href="${activationUrl}" style="display:inline-block;background:linear-gradient(135deg,#8B6240,#6E472B);color:#ffffff;text-decoration:none;padding:16px 36px;border-radius:10px;font-weight:bold;font-size:16px;box-shadow:0 6px 18px rgba(139,98,64,0.25);">
-            تفعيل الحساب والبدء بالتسوق 🌟
-          </a>
-
-          <div style="margin-top:32px;padding-top:24px;border-top:1px dashed #E8DFD5;">
-            <p style="font-size:13px;color:#8A7B70;margin-bottom:8px;">أو يمكنك إدخال رمز التحقق التالي يدوياً في المتجر:</p>
-            <div style="font-size:28px;letter-spacing:6px;font-weight:bold;color:#8B6240;background:#F9F5F0;padding:12px 24px;border-radius:8px;display:inline-block;border:1px solid #E8DFD5;">
+          <div style="background:#FBF8F5;border:2px dashed #D6B278;border-radius:14px;padding:24px 16px;margin:0 auto 24px;max-width:320px;">
+            <span style="display:block;font-size:13px;color:#8B6240;font-weight:bold;margin-bottom:8px;">رمز التحقق (OTP)</span>
+            <div style="font-size:38px;letter-spacing:10px;font-weight:900;color:#6E472B;direction:ltr;display:inline-block;font-family:Consolas,monospace;">
               ${code}
             </div>
           </div>
 
-          <p style="font-size:12px;color:#A99B90;margin-top:28px;line-height:1.6;">
-            رابط التفعيل صالح لمدة 24 ساعة. تم إرسال هذه الرسالة للتحقق من ملكية البريد وتجنب الحسابات الوهمية.
+          <p style="font-size:13px;color:#78685C;line-height:1.6;margin-bottom:24px;">
+            قم بنسخ هذا الرمز وإدخاله في خانة التحقق بالمتجر لتأكيد حسابك فوراً.
+          </p>
+
+          <p style="font-size:12px;color:#A99B90;border-top:1px solid #F0E8DF;padding-top:20px;margin-top:20px;line-height:1.6;">
+            الرمز صالح لمدة 24 ساعة. تم إرسال هذه الرسالة للتحقق من ملكية البريد وتجنب الحسابات الوهمية.
           </p>
         </div>
       </div>
@@ -735,16 +735,29 @@ app.post('/api/auth/resend-code', authLimiter, async (req, res) => {
   const mailResult = await sendMailSafe({
     from: s.from || `"متجر نجد للعطور" <${s.user}>`,
     to: cleanEmail,
-    subject: `تأكيد بريدك الإلكتروني - متجر نجد`,
-    text: `أهلاً بك، رمز التفعيل الجديد هو: ${newCode}\nأو اضغط على الرابط:\n${activationUrl}`,
+    subject: `رمز تأكيد حسابك الجديد - متجر نجد: ${newCode}`,
+    text: `أهلاً بك، رمز التحقق الجديد لتفعيل حسابك هو: ${newCode}\nالرمز صالح لمدة 24 ساعة.`,
     html: `
-      <div dir="rtl" style="font-family:'Segoe UI',Arial,sans-serif;background:#FAF7F2;padding:28px;text-align:center;">
-        <h2 style="color:#8B6240;">رمز ورابط تفعيل حسابك في متجر نجد</h2>
-        <p>اضغط على زر التفعيل التالي لتأكيد حسابك مباشرة:</p>
-        <a href="${activationUrl}" style="display:inline-block;background:#8B6240;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
-          تفعيل الحساب والبدء بالتسوق 🌟
-        </a>
-        <p style="font-size:13px;color:#78685C;">أو أدخل رمز التحقق: <strong style="font-size:22px;letter-spacing:4px;color:#8B6240;">${newCode}</strong></p>
+      <div dir="rtl" style="font-family:'Segoe UI',Arial,sans-serif;background:#FAF7F2;padding:32px 20px;color:#2C241E;text-align:center;">
+        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 24px;border:1px solid #E8DFD5;box-shadow:0 8px 24px rgba(139,98,64,0.08);">
+          <h2 style="color:#8B6240;font-size:22px;margin-bottom:12px;font-weight:900;">متجر نجد للعطور الفاخرة</h2>
+          <p style="font-size:14px;color:#78685C;line-height:1.7;margin-bottom:24px;">رمز التحقق الجديد لتفعيل حسابك هو:</p>
+          
+          <div style="background:#FBF8F5;border:2px dashed #D6B278;border-radius:14px;padding:24px 16px;margin:0 auto 24px;max-width:320px;">
+            <span style="display:block;font-size:13px;color:#8B6240;font-weight:bold;margin-bottom:8px;">رمز التحقق الجديد (OTP)</span>
+            <div style="font-size:38px;letter-spacing:10px;font-weight:900;color:#6E472B;direction:ltr;display:inline-block;font-family:Consolas,monospace;">
+              ${newCode}
+            </div>
+          </div>
+
+          <p style="font-size:13px;color:#78685C;line-height:1.6;margin-bottom:24px;">
+            قم بإدخال هذا الرمز في المتجر لتأكيد حسابك مباشرة.
+          </p>
+
+          <p style="font-size:12px;color:#A99B90;border-top:1px solid #F0E8DF;padding-top:20px;margin-top:20px;line-height:1.6;">
+            الرمز صالح لمدة 24 ساعة.
+          </p>
+        </div>
       </div>
     `
   });
