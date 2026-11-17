@@ -73,7 +73,11 @@ function createMailTransporter() {
         port: 465,
         secure: true,
         auth: { user: s.user, pass: s.pass },
-        tls: { rejectUnauthorized: false }
+        tls: { rejectUnauthorized: false },
+        family: 4, // Force IPv4 to prevent hanging on Render / Cloud containers
+        connectionTimeout: 8000,
+        greetingTimeout: 6000,
+        socketTimeout: 10000
       });
     } else {
       return nodemailer.createTransport({
@@ -81,12 +85,33 @@ function createMailTransporter() {
         port: s.port,
         secure: Number(s.port) === 465,
         auth: { user: s.user, pass: s.pass },
-        tls: { rejectUnauthorized: false }
+        tls: { rejectUnauthorized: false },
+        family: 4,
+        connectionTimeout: 8000,
+        greetingTimeout: 6000,
+        socketTimeout: 10000
       });
     }
   } catch (err) {
     console.error('Transporter creation error:', err.message);
     return null;
+  }
+}
+
+// Safe mail sender with a strict 8-second timeout so requests never hang
+async function sendMailSafe(mailOptions) {
+  const transporter = createMailTransporter();
+  if (!transporter) return { sent: false, error: 'لم يتم حفظ بيانات البريد (Gmail) في السيرفر بعد' };
+
+  try {
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بخادم البريد (Timeout)')), 8000))
+    ]);
+    return { sent: true, info };
+  } catch (err) {
+    console.error('⚠️ خطأ إرسال البريد:', err.message);
+    return { sent: false, error: err.message };
   }
 }
 
@@ -333,46 +358,48 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   console.log(`🔢 رمز التحقق (OTP): ${code}`);
   console.log(`======================================================\n`);
 
-  // Attempt to send real email if mail transporter is available
-  const transporter = createMailTransporter();
+  // Attempt to send real email using safe sender with timeout
+  const s = getMailSettings();
   let emailSent = false;
-  if (transporter) {
-    try {
-      const s = getMailSettings();
-      await transporter.sendMail({
-        from: s.from || `"متجر نجد للعطور" <${s.user}>`,
-        to: cleanEmail,
-        subject: `تفعيل حسابك في متجر نجد للعطور الفاخرة`,
-        text: `أهلاً ${cleanName}،\n\nاضغط على الرابط التالي لتفعيل حسابك في متجر نجد والبدء بالتسوق:\n${activationUrl}\n\nأو يمكنك استخدام رمز التحقق: ${code}\nالرابط صالح لمدة 24 ساعة.`,
-        html: `
-          <div dir="rtl" style="font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#FAF7F2;padding:32px 20px;color:#2C241E;text-align:center;">
-            <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 24px;border:1px solid #E8DFD5;box-shadow:0 8px 24px rgba(139,98,64,0.08);">
-              <h1 style="color:#8B6240;font-size:24px;margin-bottom:12px;font-weight:900;">متجر نجد للعطور الفاخرة</h1>
-              <p style="font-size:16px;color:#55483F;margin-bottom:24px;">أهلاً بك يا <strong>${cleanName}</strong> في عالم العطور الأصيلة.</p>
-              <p style="font-size:14px;color:#78685C;line-height:1.7;margin-bottom:28px;">لتأكيد بريدك الإلكتروني وتفعيل حسابك والبدء بإضافة العطور إلى سلتك، يرجى الضغط على زر التفعيل التالي:</p>
-              
-              <a href="${activationUrl}" style="display:inline-block;background:linear-gradient(135deg,#8B6240,#6E472B);color:#ffffff;text-decoration:none;padding:16px 36px;border-radius:10px;font-weight:bold;font-size:16px;box-shadow:0 6px 18px rgba(139,98,64,0.25);">
-                تفعيل الحساب والبدء بالتسوق 🌟
-              </a>
+  let sendError = null;
 
-              <div style="margin-top:32px;padding-top:24px;border-top:1px dashed #E8DFD5;">
-                <p style="font-size:13px;color:#8A7B70;margin-bottom:8px;">أو يمكنك إدخال رمز التحقق التالي يدوياً في المتجر:</p>
-                <div style="font-size:28px;letter-spacing:6px;font-weight:bold;color:#8B6240;background:#F9F5F0;padding:12px 24px;border-radius:8px;display:inline-block;border:1px solid #E8DFD5;">
-                  ${code}
-                </div>
+  if (s.user && s.pass) {
+    const mailResult = await sendMailSafe({
+      from: s.from || `"متجر نجد للعطور" <${s.user}>`,
+      to: cleanEmail,
+      subject: `تفعيل حسابك في متجر نجد للعطور الفاخرة`,
+      text: `أهلاً ${cleanName}،\n\nاضغط على الرابط التالي لتفعيل حسابك في متجر نجد والبدء بالتسوق:\n${activationUrl}\n\nأو يمكنك استخدام رمز التحقق: ${code}\nالرابط صالح لمدة 24 ساعة.`,
+      html: `
+        <div dir="rtl" style="font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#FAF7F2;padding:32px 20px;color:#2C241E;text-align:center;">
+          <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 24px;border:1px solid #E8DFD5;box-shadow:0 8px 24px rgba(139,98,64,0.08);">
+            <h1 style="color:#8B6240;font-size:24px;margin-bottom:12px;font-weight:900;">متجر نجد للعطور الفاخرة</h1>
+            <p style="font-size:16px;color:#55483F;margin-bottom:24px;">أهلاً بك يا <strong>${cleanName}</strong> في عالم العطور الأصيلة.</p>
+            <p style="font-size:14px;color:#78685C;line-height:1.7;margin-bottom:28px;">لتأكيد بريدك الإلكتروني وتفعيل حسابك والبدء بإضافة العطور إلى سلتك، يرجى الضغط على زر التفعيل التالي:</p>
+            
+            <a href="${activationUrl}" style="display:inline-block;background:linear-gradient(135deg,#8B6240,#6E472B);color:#ffffff;text-decoration:none;padding:16px 36px;border-radius:10px;font-weight:bold;font-size:16px;box-shadow:0 6px 18px rgba(139,98,64,0.25);">
+              تفعيل الحساب والبدء بالتسوق 🌟
+            </a>
+
+            <div style="margin-top:32px;padding-top:24px;border-top:1px dashed #E8DFD5;">
+              <p style="font-size:13px;color:#8A7B70;margin-bottom:8px;">أو يمكنك إدخال رمز التحقق التالي يدوياً في المتجر:</p>
+              <div style="font-size:28px;letter-spacing:6px;font-weight:bold;color:#8B6240;background:#F9F5F0;padding:12px 24px;border-radius:8px;display:inline-block;border:1px solid #E8DFD5;">
+                ${code}
               </div>
-
-              <p style="font-size:12px;color:#A99B90;margin-top:28px;line-height:1.6;">
-                رابط التفعيل صالح لمدة 24 ساعة. تم إرسال هذه الرسالة للتحقق من ملكية البريد وتجنب الحسابات الوهمية.
-              </p>
             </div>
+
+            <p style="font-size:12px;color:#A99B90;margin-top:28px;line-height:1.6;">
+              رابط التفعيل صالح لمدة 24 ساعة. تم إرسال هذه الرسالة للتحقق من ملكية البريد وتجنب الحسابات الوهمية.
+            </p>
           </div>
-        `
-      });
-      emailSent = true;
+        </div>
+      `
+    });
+    emailSent = mailResult.sent;
+    sendError = mailResult.error;
+    if (emailSent) {
       console.log(`✅ [تم إرسال بريد التفعيل بنجاح إلى ${cleanEmail}]`);
-    } catch (err) {
-      console.log('⚠️ تعذر إرسال الإيميل الفعلي عبر السيرفر:', err.message);
+    } else {
+      console.log(`⚠️ [تعذر إرسال الإيميل إلى ${cleanEmail}]:`, sendError);
     }
   } else {
     console.log(`ℹ️ [ملاحظة]: لم يتم ضبط بيانات البريد الإلكتروني في لوحة التحكم بعد. تم طباعة الرابط في الكونسول.`);
@@ -637,32 +664,27 @@ app.post('/api/auth/resend-code', authLimiter, async (req, res) => {
   console.log(`🔢 رمز التحقق: ${newCode}`);
   console.log(`======================================================\n`);
 
-  // Send real email if transporter is available
-  const transporter = createMailTransporter();
-  if (transporter) {
-    try {
-      const s = getMailSettings();
-      await transporter.sendMail({
-        from: s.from || `"متجر نجد للعطور" <${s.user}>`,
-        to: cleanEmail,
-        subject: `تأكيد بريدك الإلكتروني - متجر نجد`,
-        text: `أهلاً بك، رمز التفعيل الجديد هو: ${newCode}\nأو اضغط على الرابط:\n${activationUrl}`,
-        html: `
-          <div dir="rtl" style="font-family:'Segoe UI',Arial,sans-serif;background:#FAF7F2;padding:28px;text-align:center;">
-            <h2 style="color:#8B6240;">رمز ورابط تفعيل حسابك في متجر نجد</h2>
-            <p>اضغط على زر التفعيل التالي لتأكيد حسابك مباشرة:</p>
-            <a href="${activationUrl}" style="display:inline-block;background:#8B6240;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
-              تفعيل الحساب والبدء بالتسوق 🌟
-            </a>
-            <p style="font-size:13px;color:#78685C;">أو أدخل رمز التحقق: <strong style="font-size:22px;letter-spacing:4px;color:#8B6240;">${newCode}</strong></p>
-          </div>
-        `
-      });
-      console.log(`✅ [تم إعادة إرسال البريد بنجاح إلى ${cleanEmail}]`);
-      emailSent = true;
-    } catch (err) {
-      console.log('⚠️ خطأ أثناء إعادة إرسال الإيميل:', err.message);
-    }
+  // Send real email using safe sender with timeout
+  let emailSent = false;
+  const s = getMailSettings();
+  if (s.user && s.pass) {
+    const mailResult = await sendMailSafe({
+      from: s.from || `"متجر نجد للعطور" <${s.user}>`,
+      to: cleanEmail,
+      subject: `تأكيد بريدك الإلكتروني - متجر نجد`,
+      text: `أهلاً بك، رمز التفعيل الجديد هو: ${newCode}\nأو اضغط على الرابط:\n${activationUrl}`,
+      html: `
+        <div dir="rtl" style="font-family:'Segoe UI',Arial,sans-serif;background:#FAF7F2;padding:28px;text-align:center;">
+          <h2 style="color:#8B6240;">رمز ورابط تفعيل حسابك في متجر نجد</h2>
+          <p>اضغط على زر التفعيل التالي لتأكيد حسابك مباشرة:</p>
+          <a href="${activationUrl}" style="display:inline-block;background:#8B6240;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+            تفعيل الحساب والبدء بالتسوق 🌟
+          </a>
+          <p style="font-size:13px;color:#78685C;">أو أدخل رمز التحقق: <strong style="font-size:22px;letter-spacing:4px;color:#8B6240;">${newCode}</strong></p>
+        </div>
+      `
+    });
+    emailSent = mailResult.sent;
   }
 
   res.json({
@@ -715,35 +737,31 @@ app.post('/api/admin/test-email', async (req, res) => {
     return res.status(400).json({ error: 'لم يتم حفظ بيانات البريد (اسم المستخدم وكلمة مرور التطبيق) بعد. يرجى إدخالها وحفظها أولاً.' });
   }
 
-  const transporter = createMailTransporter();
-  if (!transporter) {
-    return res.status(400).json({ error: 'تعذر إنشاء اتصال بالبريد، يرجى التأكد من البيانات المدخلة.' });
+  const result = await sendMailSafe({
+    from: s.from || `"متجر نجد للعطور" <${s.user}>`,
+    to: target_email,
+    subject: 'رسالة تجريبية من متجر نجد للعطور 🌸',
+    text: 'تهانينا! تم ضبط إعدادات البريد بنجاح، رسائل التفعيل ستصل لعملائك مباشرة.',
+    html: `
+      <div dir="rtl" style="font-family:'Segoe UI',Arial,sans-serif;background:#FAF7F2;padding:32px;color:#2C241E;text-align:center;">
+        <h2 style="color:#8B6240;margin-bottom:12px;">متجر نجد للعطور الفاخرة</h2>
+        <p style="font-size:16px;">تهانينا! تم ضبط إعدادات البريد بنجاح في متجر نجد.</p>
+        <p style="font-size:14px;color:#78685C;margin-top:8px;">رسائل تفعيل الحسابات وروابط التأكيد ستصل الآن لعملائك مباشرة في صندوق الوارد.</p>
+      </div>
+    `
+  });
+
+  if (result.sent) {
+    return res.json({ message: `تم إرسال الرسالة التجريبية بنجاح إلى ${target_email}!` });
   }
 
-  try {
-    await transporter.verify();
-    await transporter.sendMail({
-      from: s.from || `"متجر نجد للعطور" <${s.user}>`,
-      to: target_email,
-      subject: 'رسالة تجريبية من متجر نجد للعطور 🌸',
-      text: 'تهانينا! تم ضبط إعدادات البريد بنجاح، رسائل التفعيل ستصل لعملائك مباشرة.',
-      html: `
-        <div dir="rtl" style="font-family:'Segoe UI',Arial,sans-serif;background:#FAF7F2;padding:32px;color:#2C241E;text-align:center;">
-          <h2 style="color:#8B6240;margin-bottom:12px;">متجر نجد للعطور الفاخرة</h2>
-          <p style="font-size:16px;">تهانينا! تم ضبط إعدادات البريد بنجاح في متجر نجد.</p>
-          <p style="font-size:14px;color:#78685C;margin-top:8px;">رسائل تفعيل الحسابات وروابط التأكيد ستصل الآن لعملائك مباشرة في صندوق الوارد.</p>
-        </div>
-      `
-    });
-    res.json({ message: `تم إرسال الرسالة التجريبية بنجاح إلى ${target_email}!` });
-  } catch (err) {
-    console.error('Test email error:', err);
-    let errMsg = err.message;
-    if (errMsg.includes('535') || errMsg.includes('Username and Password not accepted') || errMsg.includes('Invalid login')) {
-      errMsg = 'خطأ في التحقق من حساب Google: تأكد من استخدام "كلمة مرور التطبيق" (App Password) المكونة من 16 حرفاً من إعدادات حساب Google، وتأكد من تفعيل "التحقق بخطوتين" في حسابك، وليس كلمة مرور حسابك العادية.';
-    }
-    res.status(500).json({ error: errMsg });
+  let errMsg = result.error || 'فشل إرسال الإيميل';
+  if (errMsg.includes('535') || errMsg.includes('Username and Password not accepted') || errMsg.includes('Invalid login')) {
+    errMsg = 'خطأ في التحقق من حساب Google: تأكد من استخدام "كلمة مرور التطبيق" (App Password) المكونة من 16 حرفاً من إعدادات حساب Google، وتأكد من تفعيل "التحقق بخطوتين" في حسابك، وليس كلمة مرور حسابك العادية.';
+  } else if (errMsg.includes('Timeout') || errMsg.includes('ETIMEDOUT')) {
+    errMsg = 'انتهت مهلة الاتصال بالبريد (Timeout): خادم البريد استغرق وقتاً طويلاً للرد. يرجى إعادة المحاولة والتأكد من بيانات الحساب.';
   }
+  return res.status(500).json({ error: errMsg });
 });
 
 // POST /api/auth/login
