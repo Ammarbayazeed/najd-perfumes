@@ -754,23 +754,6 @@ async function handleRegister() {
     document.getElementById('verifyCode').value = '';
     document.getElementById('verifyError').classList.remove('show');
 
-    // If SMTP wasn't configured yet, help developer with friendly notice
-    const noticeEl = document.getElementById('unconfiguredNotice');
-    if (data.dev_code && noticeEl) {
-      noticeEl.innerHTML = `
-        <div style="font-size:13px;line-height:1.6;text-align:center;">
-          ⚠️ <strong>تنبيه للمسؤول:</strong><br>
-          لم يتم ربط بريد الإرسال (Gmail) في لوحة التحكم بعد لتسليم الرسائل لصندوق البريد الحقيقي.<br>
-          لتجربة الحساب الآن، رمز التحقق هو: <strong style="font-size:20px;letter-spacing:3px;color:var(--gold-dark);">${data.dev_code}</strong><br>
-          <a href="${data.dev_link}" style="display:inline-block;margin-top:6px;color:var(--gold-dark);font-weight:bold;text-decoration:underline;">أو اضغط هنا للتفعيل الفوري</a>
-          <br><small style="color:var(--text-muted);">(لإرسال الرسائل لبريد العملاء الفعلي تلقائياً، اربط بريدك في لوحة التحكم > إعدادات البريد).</small>
-        </div>
-      `;
-      noticeEl.style.display = 'block';
-    } else if (noticeEl) {
-      noticeEl.style.display = 'none';
-    }
-
     openModal('verifyModalOverlay');
     document.getElementById('verifyCode').focus();
 
@@ -853,17 +836,6 @@ async function handleResendCode() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إعادة الإرسال');
-
-    const noticeEl = document.getElementById('unconfiguredNotice');
-    if (data.dev_code && noticeEl) {
-      noticeEl.innerHTML = `
-        <div style="font-size:13px;line-height:1.6;text-align:center;">
-          ⚠️ <strong>رمز التحقق الجديد:</strong> <strong style="font-size:20px;letter-spacing:3px;color:var(--gold-dark);">${data.dev_code}</strong><br>
-          <a href="${data.dev_link}" style="display:inline-block;margin-top:6px;color:var(--gold-dark);font-weight:bold;text-decoration:underline;">أو اضغط هنا للتفعيل الفوري</a>
-        </div>
-      `;
-      noticeEl.style.display = 'block';
-    }
 
     alert('تم إرسال رسالة التفعيل ورمز التحقق الجديد إلى بريدك الإلكتروني بنجاح.');
 

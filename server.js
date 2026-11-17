@@ -409,11 +409,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     pending_verification: true,
     email: cleanEmail,
     email_sent: emailSent,
-    message: emailSent
-      ? 'تم إرسال رسالة التفعيل ورمز التحقق إلى بريدك الإلكتروني بنجاح.'
-      : 'تم تسجيل طلب الحساب بنجاح.',
-    dev_code: !emailSent ? code : null,
-    dev_link: !emailSent ? activationUrl : null
+    message: 'تم إرسال رسالة التفعيل ورمز التحقق إلى بريدك الإلكتروني بنجاح.'
   });
 });
 
@@ -688,12 +684,8 @@ app.post('/api/auth/resend-code', authLimiter, async (req, res) => {
   }
 
   res.json({
-    message: emailSent
-      ? 'تم إرسال رسالة التفعيل ورمز التحقق الجديد إلى بريدك الإلكتروني بنجاح.'
-      : 'تم إنشاء رمز تفعيل جديد.',
-    email_sent: emailSent,
-    dev_code: !emailSent ? newCode : null,
-    dev_link: !emailSent ? activationUrl : null
+    message: 'تم إرسال رسالة التفعيل ورمز التحقق الجديد إلى بريدك الإلكتروني بنجاح.',
+    email_sent: emailSent
   });
 });
 
